@@ -1,0 +1,32 @@
+[[extend 'layout.html']]
+
+<div class="section">
+   <!-- Put the table here -->
+   <div class="title">Images</div>
+   <div id="count_dropdown" onclick="document.getElementById('count_dropdown').classList.toggle('is-active');" class="dropdown">
+      <div class="dropdown-trigger">
+        <button class="button" aria-haspopup="true" aria-controls="dropdown-menu">
+          <span>Max Images per Page</span>
+          <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+        </button>
+      </div>
+      <div class="dropdown-menu" id="dropdown-menu" role="menu">
+        <div class="dropdown-content">
+         [[for count in range(5, 50, 5):]]
+          <a href="[[=URL('images', chosen_experiment_name, chosen_cam_name, count)]]" class="dropdown-item">
+            [[=count]]
+          </a>
+          [[pass]]
+        </div>
+      </div>
+   </div>
+   <a class="button" href="[[=URL('set_experiment', chosen_experiment_name)]]">
+      <span class="icon"><i class="fa fa-pen-to-square"></i></span> <span>Back</span>
+   </a>
+   <div>
+   [[for image in images:]]<img src="data:image/png;base64,[[=image]]">[[pass]]
+   </div>
+
+</div>

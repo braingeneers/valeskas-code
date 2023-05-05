@@ -1,0 +1,48 @@
+[[extend 'layout.html']]
+
+<div class="section">
+   <!-- Put the table here -->
+   <div class="title">Images</div>
+   <div id="experiment_dropdown" onclick="document.getElementById('experiment_dropdown').classList.toggle('is-active');" class="dropdown">
+      <div class="dropdown-trigger">
+        <button class="button" aria-haspopup="true" aria-controls="dropdown-menu">
+          <span>Experiment Names</span>
+          <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+        </button>
+      </div>
+      <div class="dropdown-menu" id="dropdown-menu" role="menu">
+        <div class="dropdown-content">
+         [[for experiment_name in experiment_names:]]
+          <a href="[[=URL('set_experiment', experiment_name)]]" class="dropdown-item">
+            [[=experiment_name]]
+          </a>
+          [[pass]]
+        </div>
+      </div>
+   </div>
+   <div id="cam_dropdown" onclick="document.getElementById('cam_dropdown').classList.toggle('is-active');" class="dropdown">
+      <div class="dropdown-trigger">
+        <button class="button" aria-haspopup="true" aria-controls="dropdown-menu">
+          <span>Camera Names</span>
+          <span class="icon is-small">
+            <i class="fas fa-angle-down" aria-hidden="true"></i>
+          </span>
+        </button>
+      </div>
+      <div class="dropdown-menu" id="dropdown-menu" role="menu">
+        <div class="dropdown-content">
+         [[for cam_name in cam_names:]]
+          <a href="[[=URL('set_camera', chosen_experiment_name, cam_name)]]" class="dropdown-item">
+            [[=cam_name]]
+          </a>
+          [[pass]]
+        </div>
+      </div>
+   </div>
+
+   <a class="button" href="[[=URL('images', chosen_experiment_name, chosen_cam_name, 5)]]">
+      <span class="icon"><i class="fa fa-pen-to-square"></i></span> <span>View Images</span>
+   </a>
+</div>
