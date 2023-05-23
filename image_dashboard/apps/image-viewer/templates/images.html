@@ -1,9 +1,9 @@
 [[extend 'layout.html']]
 
-<div class="section">
+<div v-if="images-ready" id="images-div" class="section">
    <!-- Put the table here -->
    <div class="title">Images</div>
-   <div id="count_dropdown" onclick="document.getElementById('count_dropdown').classList.toggle('is-active');" class="dropdown">
+   <div id="count_dropdown" class="dropdown" :class='{ "is-active": show_count_dropdown }' @click="show_count_dropdown = !show_count_dropdown">
       <div class="dropdown-trigger">
         <button class="button" aria-haspopup="true" aria-controls="dropdown-menu">
           <span>Max Images per Page</span>
@@ -14,11 +14,9 @@
       </div>
       <div class="dropdown-menu" id="dropdown-menu" role="menu">
         <div class="dropdown-content">
-         [[for count in range(5, 50, 5):]]
-          <a href="[[=URL('images', chosen_experiment_name, chosen_cam_name, count)]]" class="dropdown-item">
-            [[=count]]
+          <a v-for="count in range(5, 50, 5)" @click="get_images()" class="dropdown-item">
+            {{count}}
           </a>
-          [[pass]]
         </div>
       </div>
    </div>
@@ -26,7 +24,6 @@
       <span class="icon"><i class="fa fa-pen-to-square"></i></span> <span>Back</span>
    </a>
    <div>
-   [[for image in images:]]<img src="data:image/png;base64,[[=image]]">[[pass]]
+   <img v-for="image in images" src="data:image/png;base64,[[=image]]">
    </div>
-
 </div>

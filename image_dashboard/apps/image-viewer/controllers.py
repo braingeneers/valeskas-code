@@ -17,6 +17,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 from io import BytesIO
+import zlib
+import pandas as pd
+from PIL import Image
 
 url_signer = URLSigner(session)
 
@@ -63,12 +66,48 @@ def index():
     #     redirect(URL('index'))
 
     #rows = db(db.bird.user_email == get_user_email()).select()
-    return dict(experiment_names=dir_list, cam_names=[""], chosen_experiment_name="", chosen_cam_name="")
+
+    get_experiments_url = URL('get_experiments')
+    set_experiment_url = URL('set_experiment')
+    set_camera_url = URL('set_camera')
+    images_url = URL('images')
+
+    return dict(images_url=images_url, set_camera_url=set_camera_url, get_experiments_url=get_experiments_url, set_experiment_url=set_experiment_url, experiment_names=dir_list, cam_names=[""], chosen_experiment_name="", chosen_cam_name="")
     #return dict(images = request.query.get('images', images))
 
-@action('set_experiment/<experiment_name>', method=["GET", "POST"])
-@action.uses('index.html', db, session)
-def index(experiment_name=None):
+@action('get_experiments')
+@action.uses(db)
+def get_experiments():
+    BUCKET_NAME = "streamscope"
+
+    # TODO: Consider closing the client connection, if applicable
+
+    s3 = boto3.client('s3', endpoint_url="https://s3-west.nrp-nautilus.io")
+
+    ROOT_DIR = ""
+
+    result = s3.list_objects_v2(Bucket=BUCKET_NAME, Prefix=ROOT_DIR, Delimiter='/')
+
+    experiment_names = []
+
+    #db.experiments.truncate()
+    #db.cam_names.truncate()
+
+    for o in result.get('CommonPrefixes'):
+        path = o.get('Prefix')
+        if path == "/":
+            continue
+        experiment_names.append(path.replace("/", ""))
+        #dir_list.append(path.split(ROOT_DIR)[1].replace("/", ""))
+        db.experiments.update_or_insert(experiment_name=path.replace("/", ""))
+
+    return dict(experiment_names=experiment_names)
+
+
+@action('set_experiment', method=["GET", "POST"])
+@action.uses(db, session)
+def set_experiment():
+    experiment_name = request.params.get("experiment_name")
     assert experiment_name is not None
 
     # Retrieve the list of existing buckets
@@ -97,12 +136,15 @@ def index(experiment_name=None):
     cur_cam_list = dir_list
 
     #rows = db(db.bird.user_email == get_user_email()).select()
-    return dict(experiment_names=experiment_list, cam_names=dir_list, chosen_experiment_name=experiment_name, chosen_cam_name="")
+    return dict(cam_names=dir_list)
     #return dict(images = request.query.get('images', images))
 
-@action('set_camera/<experiment_name>/<cam_name>', method=["GET", "POST"])
-@action.uses('index.html', db, session)
-def index(experiment_name=None, cam_name=None):
+@action('set_camera', method=["GET", "POST"])
+@action.uses(db, session)
+def set_camera():
+    experiment_name = request.params.get("experiment_name")
+    cam_name = request.params.get("cam_name")
+
     assert cam_name is not None
     assert experiment_name is not None
 
@@ -110,12 +152,18 @@ def index(experiment_name=None, cam_name=None):
     return dict(experiment_names=experiment_list, cam_names=cur_cam_list, chosen_experiment_name=experiment_name, chosen_cam_name=cam_name)
     #return dict(images = request.query.get('images', images))
 
-@action('images/<experiment_name>/<cam_name>/<max_count:int>')
-@action.uses('images.html', db, session)
-def get_images(experiment_name=None, cam_name=None, max_count=None):
+@action('images', method=["GET", "POST"])
+@action.uses(db, session)
+def get_images():
+    experiment_name = request.params.get("experiment_name")
+    cam_name = request.params.get("cam_name")
+    page_size = int(request.params.get("page_size"))
+    cur_img_index = int(request.params.get("cur_img_index"))
+
     assert cam_name is not None
     assert experiment_name is not None
-    assert max_count is not None
+    assert page_size is not None
+    assert cur_img_index is not None
 
 
     BUCKET_NAME = "streamscope"
@@ -124,9 +172,9 @@ def get_images(experiment_name=None, cam_name=None, max_count=None):
 
     ROOT_DIR = ""
 
-    prefix = ROOT_DIR + experiment_name + "/"
+    prefix = ROOT_DIR + experiment_name + "/" + cam_name+"/"
 
-    max_images_per_page = max_count
+    max_images_per_page = page_size
 
     file_name = ""
 
@@ -139,7 +187,7 @@ def get_images(experiment_name=None, cam_name=None, max_count=None):
     #         print(f"file_name: {file['Key']}, size: {file['Size']}")
     #     print("#" * 10)
 
-    response = s3.list_objects_v2(Bucket=BUCKET_NAME, Prefix=prefix+cam_name+"/", Delimiter='/')
+    response = s3.list_objects_v2(Bucket=BUCKET_NAME, Prefix=prefix, Delimiter='/')
 
     camera_dir_list = []
 
@@ -164,12 +212,14 @@ def get_images(experiment_name=None, cam_name=None, max_count=None):
     last_i = 0
 
     images = []
+    file_names = []
 
-    for i in range(0, max_images_per_page):
+    for i in range(cur_img_index, max_images_per_page+cur_img_index):
         if i == len(file_list):
             break
         last_i = i
         path = file_list[i]
+        file_names.append(path.split(prefix)[1].replace("/", ""))
 
         try:
             s3_response_object = s3.get_object(Bucket=BUCKET_NAME, Key=path)
@@ -179,11 +229,11 @@ def get_images(experiment_name=None, cam_name=None, max_count=None):
             print(e)
             raise
 
-    return dict(images = request.query.get('images', images), chosen_experiment_name=experiment_name, chosen_cam_name=cam_name)
+    return dict(images=images, file_names=file_names)
 
 
 
-
+# ---------------------------------------
 
 
 

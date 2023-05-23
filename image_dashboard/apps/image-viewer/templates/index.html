@@ -1,48 +1,99 @@
 [[extend 'layout.html']]
 
-<div class="section">
+<style>
+  [v-cloak] {
+       display: none;
+  }
+  </style>
+  
+  
+  <div class="section" id="vue-target" v-cloak>
    <!-- Put the table here -->
    <div class="title">Images</div>
-   <div id="experiment_dropdown" onclick="document.getElementById('experiment_dropdown').classList.toggle('is-active');" class="dropdown">
+   <div id="experiment_dropdown" class="dropdown" :class='{ "is-active": show_experiment_dropdown }' @click="show_experiment_dropdown = !show_experiment_dropdown"
+   @change="show_experiment_dropdown = !show_experiment_dropdown">
       <div class="dropdown-trigger">
         <button class="button" aria-haspopup="true" aria-controls="dropdown-menu">
           <span>Experiment Names</span>
           <span class="icon is-small">
-            <i class="fas fa-angle-down" aria-hidden="true"></i>
+            <i class="fa fa-angle-down" aria-hidden="true"></i>
           </span>
         </button>
       </div>
       <div class="dropdown-menu" id="dropdown-menu" role="menu">
         <div class="dropdown-content">
-         [[for experiment_name in experiment_names:]]
-          <a href="[[=URL('set_experiment', experiment_name)]]" class="dropdown-item">
-            [[=experiment_name]]
+          <a v-for="experiment_name in experiment_names" @click="set_experiment(experiment_name)" class="dropdown-item">
+            {{experiment_name}}
           </a>
-          [[pass]]
         </div>
       </div>
    </div>
-   <div id="cam_dropdown" onclick="document.getElementById('cam_dropdown').classList.toggle('is-active');" class="dropdown">
+   <div id="cam_dropdown" class="dropdown" :class='{ "is-active": show_cam_dropdown }' @click="show_cam_dropdown = !show_cam_dropdown">
       <div class="dropdown-trigger">
         <button class="button" aria-haspopup="true" aria-controls="dropdown-menu">
           <span>Camera Names</span>
           <span class="icon is-small">
-            <i class="fas fa-angle-down" aria-hidden="true"></i>
+            <i class="fa fa-angle-down" aria-hidden="true"></i>
           </span>
         </button>
       </div>
       <div class="dropdown-menu" id="dropdown-menu" role="menu">
         <div class="dropdown-content">
-         [[for cam_name in cam_names:]]
-          <a href="[[=URL('set_camera', chosen_experiment_name, cam_name)]]" class="dropdown-item">
-            [[=cam_name]]
+          <a v-for="cam_name in cam_names" @click="set_camera(cam_name)" class="dropdown-item">
+            {{cam_name}}
           </a>
-          [[pass]]
         </div>
       </div>
    </div>
+   <div id="count_dropdown" class="dropdown" :class='{ "is-active": show_count_dropdown }' @click="show_count_dropdown = !show_count_dropdown">
+    <div class="dropdown-trigger">
+      <button class="button" aria-haspopup="true" aria-controls="dropdown-menu">
+        <span>Max Images per Page</span>
+        <span class="icon is-small">
+          <i class="fa fa-angle-down" aria-hidden="true"></i>
+        </span>
+      </button>
+    </div>
+    <div class="dropdown-menu" id="dropdown-menu" role="menu">
+      <div class="dropdown-content">
+        <a v-for="count in 10" @click="get_images(count*5)" class="dropdown-item">
+          {{count*5}}
+        </a>
+      </div>
+    </div>
+  </div>
 
-   <a class="button" href="[[=URL('images', chosen_experiment_name, chosen_cam_name, 5)]]">
-      <span class="icon"><i class="fa fa-pen-to-square"></i></span> <span>View Images</span>
+   <a class="button" @click="get_images()">
+      <span class="icon"><i class="fa fa-paper-plane"></i></span> <span>View Images</span>
    </a>
+   <p v-if="loading">...Loading Images...</p>
+
+  <!-- Put the table here -->
+  <br>
+  <div v-show="images_ready" id="images-div">
+
+    <img v-if="show_image_overlay" v-bind:src="'data:image/png;base64,' + clicked_image">
+    <a v-if="show_image_overlay" @click="show_image_overlay=false;">Hide Image</a>
+
+    <div v-if="!show_image_overlay" class="columns is-multiline is-mobile">
+      <div class="column is-mobile" v-if="images.length != 0" v-for="i in images.length">
+        <figure class="image is-128x128">
+          <p>{{file_names[i-1]}}</p>
+          <img class="is-clickable" @click="clicked_image=images[i-1]; show_image_overlay=true;" v-bind:src="'data:image/png;base64,' + images[i-1]">
+        </figure>
+      </div>
+    </div>
+    <a @click="get_images()">Next Page</a>
+  </div>
 </div>
+
+[[block page_scripts]]
+<!-- Loads the index-specific js for Vue -->
+<script>
+let get_experiments_url = "[[=XML(get_experiments_url)]]";
+let set_experiment_url = "[[=XML(set_experiment_url)]]";
+let set_camera_url = "[[=XML(set_camera_url)]]";
+let images_url = "[[=XML(images_url)]]";
+</script>
+<script src="js/index.js"></script>
+[[end]]
