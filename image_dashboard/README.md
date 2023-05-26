@@ -1,5 +1,13 @@
 # Image Viewer Dashboard!
 
-run:
+## Install:
 
-py4web run apps
+```
+python3 -m pip install --upgrade py4web --no-cache-dir --user
+
+npm install
+```
+
+## Run:
+
+```py4web run apps```
