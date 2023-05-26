@@ -7,83 +7,101 @@
   </style>
   
   
-  <div class="section" id="vue-target" v-cloak>
-   <!-- Put the table here -->
-   <div class="title">Images</div>
-   <div id="experiment_dropdown" class="dropdown" :class='{ "is-active": show_experiment_dropdown }' @click="show_experiment_dropdown = !show_experiment_dropdown"
-   @change="show_experiment_dropdown = !show_experiment_dropdown">
-      <div class="dropdown-trigger">
-        <button class="button" aria-haspopup="true" aria-controls="dropdown-menu">
-          <span>Experiment Names</span>
-          <span class="icon is-small">
-            <i class="fa fa-angle-down" aria-hidden="true"></i>
-          </span>
-        </button>
-      </div>
-      <div class="dropdown-menu" id="dropdown-menu" role="menu">
-        <div class="dropdown-content">
-          <a v-for="experiment_name in experiment_names" @click="set_experiment(experiment_name)" class="dropdown-item">
-            {{experiment_name}}
-          </a>
+  <div class="title">Images</div>
+  <div class="columns is-mobile is-multiline" id="vue-target" v-cloak>
+    <div class="column is-mobile is-full">
+    <!-- Put the table here -->
+      <div class="field is-grouped">
+        <div id="experiment_dropdown" class="dropdown" :class='{ "is-active": show_experiment_dropdown }' @click="show_experiment_dropdown = !show_experiment_dropdown"
+        @change="show_experiment_dropdown = !show_experiment_dropdown">
+          <div class="dropdown-trigger">
+            <button class="button" aria-haspopup="true" aria-controls="dropdown-menu">
+              <span v-if="!experiment_been_selected">Experiment Names</span>
+              <span v-if="experiment_been_selected">Experiment Name: {{chosen_experiment_name}}</span>
+              <span class="icon is-small">
+                <i class="fa fa-angle-down" aria-hidden="true"></i>
+              </span>
+            </button>
+          </div>
+          <div class="dropdown-menu" id="dropdown-menu" role="menu">
+            <div class="dropdown-content">
+              <a :class='{"has-background-grey-lighter has-text-weight-bold": chosen_experiment_name == experiment_name }' v-for="experiment_name in experiment_names" @click="set_experiment(experiment_name); experiment_been_selected = true;" class="dropdown-item">
+                {{experiment_name}}
+              </a>
+            </div>
+          </div>
         </div>
-      </div>
-   </div>
-   <div id="cam_dropdown" class="dropdown" :class='{ "is-active": show_cam_dropdown }' @click="show_cam_dropdown = !show_cam_dropdown">
-      <div class="dropdown-trigger">
-        <button class="button" aria-haspopup="true" aria-controls="dropdown-menu">
-          <span>Camera Names</span>
-          <span class="icon is-small">
-            <i class="fa fa-angle-down" aria-hidden="true"></i>
-          </span>
-        </button>
-      </div>
-      <div class="dropdown-menu" id="dropdown-menu" role="menu">
-        <div class="dropdown-content">
-          <a v-for="cam_name in cam_names" @click="set_camera(cam_name)" class="dropdown-item">
-            {{cam_name}}
-          </a>
+        <div id="cam_dropdown" class="dropdown" :class='{ "is-active": show_cam_dropdown }' @click="show_cam_dropdown = !show_cam_dropdown">
+          <div class="dropdown-trigger">
+            <button class="button" aria-haspopup="true" aria-controls="dropdown-menu">
+              <span v-if="!cam_been_selected">Camera Names</span>
+              <span v-if="cam_been_selected">Camera Name: {{chosen_cam_name}}</span>
+              <span class="icon is-small">
+                <i class="fa fa-angle-down" aria-hidden="true"></i>
+              </span>
+            </button>
+          </div>
+          <div class="dropdown-menu" id="dropdown-menu" role="menu">
+            <div class="dropdown-content">
+              <a v-for="cam_name in cam_names" :class='{"has-background-grey-lighter has-text-weight-bold": cam_name == chosen_cam_name }' @click="set_camera(cam_name); cam_been_selected = true;" class="dropdown-item">
+                {{cam_name}}
+              </a>
+            </div>
+          </div>
         </div>
+        <div id="count_dropdown" class="dropdown" :class='{ "is-active": show_count_dropdown }' @click="show_count_dropdown = !show_count_dropdown">
+          <div class="dropdown-trigger">
+            <button class="button" aria-haspopup="true" aria-controls="dropdown-menu">
+              <span v-if="!count_been_selected">Max Images per Page (Default:{{page_size}})</span>
+              <span v-if="count_been_selected">Page Size: {{page_size}}</span>
+              <span class="icon is-small">
+                <i class="fa fa-angle-down" aria-hidden="true"></i>
+              </span>
+            </button>
+          </div>
+          <div class="dropdown-menu" id="dropdown-menu" role="menu">
+            <div class="dropdown-content">
+              <a v-for="count in 10" :class='{"has-background-grey-lighter has-text-weight-bold": count*5 == page_size }' @click="page_size = count*5; count_been_selected = true;" class="dropdown-item">
+                {{count*5}}
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <input class="input" placeholder="Image Start Index" v-model="start_index"></input>
+        </div>
+        <a class="button" :disabled="!ready_to_get" :class='{ "is-loading": loading }' @click="get_images()">
+            <span class="icon"><i :class='{ "fa fa-paper-plane": !loading }'></i></span> <span>View Images</span>
+        </a>
       </div>
-   </div>
-   <div id="count_dropdown" class="dropdown" :class='{ "is-active": show_count_dropdown }' @click="show_count_dropdown = !show_count_dropdown">
-    <div class="dropdown-trigger">
-      <button class="button" aria-haspopup="true" aria-controls="dropdown-menu">
-        <span>Max Images per Page</span>
-        <span class="icon is-small">
-          <i class="fa fa-angle-down" aria-hidden="true"></i>
-        </span>
-      </button>
+      <br>
+      <p v-if="loading">...Loading Images...</p>
     </div>
-    <div class="dropdown-menu" id="dropdown-menu" role="menu">
-      <div class="dropdown-content">
-        <a v-for="count in 10" @click="get_images(count*5)" class="dropdown-item">
-          {{count*5}}
+
+    <!-- Put the table here -->
+    <br>
+    <div class="column is-mobile">
+      <div v-show="images_ready" id="images-div">
+
+        <img v-if="show_image_overlay" v-bind:src="'data:image/png;base64,' + clicked_image">
+        <a v-if="show_image_overlay" class="button" @click="show_image_overlay=false;">
+          <span class="icon"><i class="fa fa-chevron-right"></i></span> <span>Hide Image</span>
+        </a>
+
+        <div v-if="!show_image_overlay" class="columns is-multiline is-mobile">
+          <div class="column is-mobile" v-if="images.length != 0" v-for="i in images.length">
+            <figure class="image is-128x128">
+              <p>{{file_names[i-1]}}</p>
+              <img class="is-clickable" @click="clicked_image=images[i-1]; show_image_overlay=true;" v-bind:src="'data:image/png;base64,' + images[i-1]">
+            </figure>
+          </div>
+        </div>
+        <a class="button" :class='{ "is-loading": loading }' @click="get_images()">
+          <span class="icon"><i class="fa fa-chevron-right"></i></span> <span>Next Page</span>
         </a>
       </div>
     </div>
-  </div>
-
-   <a class="button" @click="get_images()">
-      <span class="icon"><i class="fa fa-paper-plane"></i></span> <span>View Images</span>
-   </a>
-   <p v-if="loading">...Loading Images...</p>
-
-  <!-- Put the table here -->
-  <br>
-  <div v-show="images_ready" id="images-div">
-
-    <img v-if="show_image_overlay" v-bind:src="'data:image/png;base64,' + clicked_image">
-    <a v-if="show_image_overlay" @click="show_image_overlay=false;">Hide Image</a>
-
-    <div v-if="!show_image_overlay" class="columns is-multiline is-mobile">
-      <div class="column is-mobile" v-if="images.length != 0" v-for="i in images.length">
-        <figure class="image is-128x128">
-          <p>{{file_names[i-1]}}</p>
-          <img class="is-clickable" @click="clicked_image=images[i-1]; show_image_overlay=true;" v-bind:src="'data:image/png;base64,' + images[i-1]">
-        </figure>
-      </div>
-    </div>
-    <a @click="get_images()">Next Page</a>
   </div>
 </div>
 

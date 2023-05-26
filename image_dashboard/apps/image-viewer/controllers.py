@@ -133,7 +133,7 @@ def set_experiment():
         dir_list.append(path.split(ROOT_DIR)[1].replace("/", ""))
         db.cam_names.update_or_insert(cam_name=path.split(ROOT_DIR)[1].replace("/", ""), experiment_id=experiment_id)
 
-    cur_cam_list = dir_list
+    dir_list = sorted(dir_list, key=lambda x: int(x.split("cam")[1]))
 
     #rows = db(db.bird.user_email == get_user_email()).select()
     return dict(cam_names=dir_list)
@@ -159,11 +159,13 @@ def get_images():
     cam_name = request.params.get("cam_name")
     page_size = int(request.params.get("page_size"))
     cur_img_index = int(request.params.get("cur_img_index"))
+    #img_start_index = int(request.params.get("start_index"))
 
     assert cam_name is not None
     assert experiment_name is not None
     assert page_size is not None
     assert cur_img_index is not None
+    #assert img_start_index is not None
 
 
     BUCKET_NAME = "streamscope"
@@ -176,8 +178,6 @@ def get_images():
 
     max_images_per_page = page_size
 
-    file_name = ""
-
     # paginator = s3.get_paginator("list_objects_v2")
     # response = paginator.paginate(Bucket=BUCKET_NAME, PaginationConfig={"PageSize": max_images_per_page, "Prefix": prefix+chosen_cam+"/"})
     # for page in response:
@@ -189,10 +189,6 @@ def get_images():
 
     response = s3.list_objects_v2(Bucket=BUCKET_NAME, Prefix=prefix, Delimiter='/')
 
-    camera_dir_list = []
-
-    cam_names = []
-
     file_list = []
 
     # TODO: Use this for more than 1,000 files in the subdirectory
@@ -202,24 +198,45 @@ def get_images():
     # for object_summary in bucket.objects.filter(Prefix=prefix):
     #     print(object_summary.key)
 
+    # TODO: Ensure that only images are counted.
     for content in response.get('Contents', []):
         path = content['Key']
         if path == "/":
             continue
         file_list.append(path)
-        print(path)
+        #print(path)
 
-    last_i = 0
+    file_list = sorted(file_list, key=lambda x: int(x.split(prefix)[1].replace("/", "").split("_")[1].split(".")[0]))
+
+    max_file_index = int(file_list[-1].split(prefix)[1].replace("/", "").split("_")[1].split(".")[0])
 
     images = []
     file_names = []
 
+    print("Len file list:", len(file_list), " max index:", max_file_index)
+
+    file_dict = {}
+
+    for file in file_list:
+        file_dict[int(file.split(prefix)[1].replace("/", "").split("_")[1].split(".")[0])] = file
+
+    #print("file_dict:", file_dict)
+
+    #print("Sorted file_list:", file_list)
+
+    print("cur_img_index before:", cur_img_index)
+    if max_file_index <= cur_img_index+max_images_per_page:
+        cur_img_index = max_file_index-max_images_per_page
+
+    print("cur_img_index after:", cur_img_index, " cur_img_index + page size:", cur_img_index + max_images_per_page)
     for i in range(cur_img_index, max_images_per_page+cur_img_index):
-        if i == len(file_list):
-            break
-        last_i = i
-        path = file_list[i]
-        file_names.append(path.split(prefix)[1].replace("/", ""))
+        if i not in file_dict:
+            # TODO: Consider the case of a discontinuity, such as having page size of 5 and indices 100, 101, 102, 103, 107. You'd return only four results even though five exist.
+            continue
+        #print("in here")
+        path = file_dict[i]
+
+        file_names.append(path.split(prefix)[1].replace("/", "").split("_")[1].split(".")[0])
 
         try:
             s3_response_object = s3.get_object(Bucket=BUCKET_NAME, Key=path)
@@ -228,48 +245,5 @@ def get_images():
         except Exception as e:
             print(e)
             raise
-
-    return dict(images=images, file_names=file_names)
-
-
-
-# ---------------------------------------
-
-
-
-@action('add', method=["GET", "POST"])
-@action.uses('add.html', url_signer, db, session, auth.user)
-def add():
-    # Insert form: no record= in it.
-    form = Form(db.bird, csrf_session=session, formstyle=FormStyleBulma)
-    if form.accepted:
-        # We simply redirect; the insertion already happened.
-        redirect(URL('index'))
-    # Either this is a GET request, or this is a POST but not accepted = with errors.
-    return dict(form=form)
-
-@action('edit/<bird_id:int>', method=["GET", "POST"])
-@action.uses('edit.html', url_signer.verify(), db, session, auth.user)
-def edit(bird_id=None):
-    assert bird_id is not None
-    # We read the product being edited from the db.
-    # p = db(db.product.id == product_id).select().first()
-    b = db.bird[bird_id]
-    if b is None:
-        # Nothing found to be edited!
-        redirect(URL('index'))
-    # Edit form: it has record=
-    form = Form(db.bird, record=b, deletable=False, csrf_session=session, formstyle=FormStyleBulma)
-    if form.accepted:
-        # The update already happened!
-        redirect(URL('index'))
-    return dict(form=form)
-
-@action('inc/<bird_id:int>')
-@action.uses(db, session, auth.user, url_signer.verify())
-def inc(bird_id=None):
-    assert bird_id is not None
-    bird = db.bird[bird_id]
-    num = db(db.bird.id == bird_id).select().first()['n_sightings']
-    db(db.bird.id == bird_id).update(n_sightings = num+1)
-    redirect(URL('index'))
+    # TODO: change total image count name to be more clear about the difference between count and indices
+    return dict(images=images, file_names=file_names, total_image_count=max_file_index)

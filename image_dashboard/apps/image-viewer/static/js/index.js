@@ -32,6 +32,12 @@ let init = (app) => {
         show_image_overlay: false,
         cur_img_index: 0,
         file_names: [],
+        count_been_selected: false,
+        cam_been_selected: false,
+        experiment_been_selected: false,
+        start_index: null,
+        ready_to_get: false,
+        old_start_index: null,
     };
 
     app.enumerate = (a) => {
@@ -39,6 +45,13 @@ let init = (app) => {
         let k = 0;
         a.map((e) => {e._idx = k++;});
         return a;
+    };
+
+    app.update_button = function () {
+        // This removes the disabled attribute on the View Images button if the required fields have been supplied.
+        if (app.vue.cam_been_selected && app.vue.experiment_been_selected) {
+            app.vue.ready_to_get = true;
+        }
     };
 
     app.set_follow = function (user_id) {
@@ -106,25 +119,34 @@ let init = (app) => {
                 app.vue.cam_names = app.enumerate(result.data.cam_names);
                 app.vue.chosen_experiment_name = experiment_name;
                 app.vue.cur_img_index = 0;
+                app.update_button();
             });
     }
 
-    app.get_images = function (page_size) {
-        if (!page_size) {
-            page_size = app.vue.page_size;
+    app.get_images = function () {
+        if (app.vue.ready_to_get == false) {
+            return;
         }
-        else {
-            app.vue.page_size = page_size;
-        }
+        app.vue.show_image_overlay = false;
         app.vue.loading = true;
-        axios.get(images_url, {params: {cur_img_index: app.vue.cur_img_index, experiment_name: app.vue.chosen_experiment_name, cam_name: app.vue.chosen_cam_name, page_size: page_size}})
+        // If the start index has never been provided before now, then set cur_img_index to the start index
+        // if it has been provided before and has changed in the last call, then do the same, else, do nothing.
+        if ((app.vue.old_start_index == null && app.vue.start_index != null) || (app.vue.start_index != app.vue.old_start_index && app.vue.start_index != null)) {
+            app.vue.cur_img_index = app.vue.start_index;
+        }
+        axios.get(images_url, {params: {start_index: app.vue.start_index, cur_img_index: app.vue.cur_img_index, experiment_name: app.vue.chosen_experiment_name, cam_name: app.vue.chosen_cam_name, page_size: app.vue.page_size}})
             .then(function (result) {
                 app.vue.images = result.data.images;
                 app.vue.images_ready = true;
                 //console.log(app.vue.images)
                 app.vue.loading = false;
-                app.vue.cur_img_index += app.vue.page_size;
+                app.vue.cur_img_index = parseInt(app.vue.cur_img_index) + parseInt(app.vue.page_size);
                 app.vue.file_names = result.data.file_names;
+                // update the number in the text box for start index if it is outside of the range.
+                if (parseInt(result.data.total_image_count) <= parseInt(app.vue.start_index)+parseInt(app.vue.page_size)) {
+                    app.vue.start_index = result.data.total_image_count-app.vue.page_size;
+                }
+                app.vue.old_start_index = app.vue.start_index;
             });
     }
 
@@ -133,6 +155,7 @@ let init = (app) => {
             .then(function (result) {
                 app.vue.chosen_cam_name = cam_name;
                 app.vue.cur_img_index = 0;
+                app.update_button();
             });
     }
 
