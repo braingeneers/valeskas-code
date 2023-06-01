@@ -20,12 +20,50 @@ from io import BytesIO
 import zlib
 import pandas as pd
 from PIL import Image
+import cv2
 
 url_signer = URLSigner(session)
 
 experiment_list = []
 
 cur_cam_list = []
+
+def create_timelapse(image_files, fps=10):
+    local_path = "timelapse.mp4"
+    frame = cv2.imdecode(image_files[0], cv2.IMREAD_COLOR)
+    height, width, layers = frame.shape
+    #cv2.imwrite("result.jpg", frame)
+
+    #print("image_files:", image_files)
+
+    # Determine common size for all images
+    # TODO: Should probably eliminate this
+    for image_file in image_files:
+        image = cv2.imdecode(image_file, cv2.IMREAD_COLOR)
+        if image.shape != (height, width, layers):
+            height, width, layers = image.shape
+
+    # Create video writer object
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    video = cv2.VideoWriter(local_path, fourcc, fps, (width, height))
+
+    # Write frames to video
+    for image_file in image_files:
+        image = cv2.imdecode(image_file, cv2.IMREAD_COLOR)
+
+        # Resize image if necessary
+        if image.shape != (height, width, layers):
+            image = cv2.resize(image, (width, height))
+
+        video.write(image)
+
+    # Release resources
+    cv2.destroyAllWindows()
+    video.release()
+    contents = None
+    with open(local_path, mode="rb") as video_file:
+        contents = video_file.read()
+        return base64.b64encode(contents).decode('utf-8') 
 
 @action('index', method=["GET", "POST"])
 @action.uses('index.html', db, session)
@@ -133,7 +171,7 @@ def set_experiment():
         dir_list.append(path.split(ROOT_DIR)[1].replace("/", ""))
         db.cam_names.update_or_insert(cam_name=path.split(ROOT_DIR)[1].replace("/", ""), experiment_id=experiment_id)
 
-    dir_list = sorted(dir_list, key=lambda x: int(x.split("cam")[1]))
+    dir_list = sorted(dir_list, key=lambda x: x.split("cam")[1])
 
     #rows = db(db.bird.user_email == get_user_email()).select()
     return dict(cam_names=dir_list)
@@ -159,6 +197,9 @@ def get_images():
     cam_name = request.params.get("cam_name")
     page_size = int(request.params.get("page_size"))
     cur_img_index = int(request.params.get("cur_img_index"))
+    make_timelapse = request.params.get("make_timelapse")
+    fps = request.params.get("fps")
+    index_provided = request.params.get("index_provided")
     #img_start_index = int(request.params.get("start_index"))
 
     assert cam_name is not None
@@ -166,6 +207,23 @@ def get_images():
     assert page_size is not None
     assert cur_img_index is not None
     #assert img_start_index is not None
+    assert index_provided is not None
+
+    if index_provided == "false":
+        index_provided = False
+    else:
+        index_provided = True
+        
+    #print("make_timelapse:", make_timelapse)
+    if make_timelapse == "false" or make_timelapse == "null":
+        make_timelapse = False
+    else:
+        make_timelapse = True
+
+    if fps is None:
+        fps = 10
+    else:
+        fps = int(fps)
 
 
     BUCKET_NAME = "streamscope"
@@ -229,12 +287,23 @@ def get_images():
         cur_img_index = max_file_index-max_images_per_page
 
     print("cur_img_index after:", cur_img_index, " cur_img_index + page size:", cur_img_index + max_images_per_page)
+
+    #print("file_list:", file_list[cur_img_index:max_images_per_page+cur_img_index])
+    print("index_provided:", index_provided)
+
     for i in range(cur_img_index, max_images_per_page+cur_img_index):
-        if i not in file_dict:
+        if i not in file_dict and index_provided:
+            print("continued!")
             # TODO: Consider the case of a discontinuity, such as having page size of 5 and indices 100, 101, 102, 103, 107. You'd return only four results even though five exist.
             continue
         #print("in here")
-        path = file_dict[i]
+        path = ""
+        if index_provided:
+            path = file_dict[i]
+        else:
+            path = file_list[i]
+
+        #print("path:", path, " i:", i)
 
         file_names.append(path.split(prefix)[1].replace("/", "").split("_")[1].split(".")[0])
 
@@ -244,6 +313,8 @@ def get_images():
             images.append(base64.b64encode(BytesIO(object_content).getvalue()).decode('utf-8'))
         except Exception as e:
             print(e)
-            raise
+    if make_timelapse:
+        print("timelapse in:")
+        return dict(timelapse=create_timelapse(np.array([np.asarray(bytearray(base64.b64decode(image)), dtype="uint8") for image in images]), fps))
     # TODO: change total image count name to be more clear about the difference between count and indices
     return dict(images=images, file_names=file_names, total_image_count=max_file_index)

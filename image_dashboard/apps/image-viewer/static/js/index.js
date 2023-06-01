@@ -9,15 +9,8 @@ let init = (app) => {
 
     // This is the Vue data.
     app.data = {
-        query: "",
-        meow: "",
-        reply_meow: [],
-        reply_mode: false,
-        meow_id: 0,
         experiment_names: [],
         experiment_name: "",
-        meows: [],
-        user_rows: [],
         cam_names: [],
         chosen_experiment_name: "",
         chosen_cam_name: "",
@@ -38,6 +31,9 @@ let init = (app) => {
         start_index: null,
         ready_to_get: false,
         old_start_index: null,
+        timelapse: null,
+        timelapse_ready: false,
+        index_provided: false,
     };
 
     app.enumerate = (a) => {
@@ -53,58 +49,6 @@ let init = (app) => {
             app.vue.ready_to_get = true;
         }
     };
-
-    app.set_follow = function (user_id) {
-        console.log("follow!")
-        axios.get(set_follow_url, {params: {user_id: user_id}})
-            .then(function (result) {
-                axios.get(search_url).then(function (r) {
-                    app.vue.user_rows = r.data.user_rows;
-                })
-            });
-    }
-
-    app.post_remeow = function (remeow) {
-            axios.get(post_meow_url, {params: {m: remeow}})
-                .then(function (result) {
-                    axios.get(get_meows_url).then(function (r) {
-                        app.vue.meows = app.enumerate(r.data.meows);
-                    })
-                });
-    }
-
-    app.post_meow = function () {
-        if (app.vue.reply_mode) {
-            app.post_reply(app.vue.meow)
-        }
-        else {
-        axios.get(post_meow_url, {params: {m: app.vue.meow}})
-            .then(function (result) {
-                    
-            });
-        }
-    }
-    app.post_reply = function (reply) {
-        axios.get(post_reply_url, {params: {reply: reply, meow_id: app.vue.meow_id}})
-            .then(function (result) {
-                    app.get_replies(app.vue.meow_id)
-            });
-    }
-
-    app.get_replies = function (meow_id) {
-        axios.get(get_replies_url, {params: {meow_id: meow_id}})
-            .then(function (result) {
-                for (let i = 0; i < app.vue.meows.length; i++) {
-                    if (app.vue.meows[i].id == meow_id) {
-                        app.vue.reply_meow = app.vue.meows[i];
-                    }
-                }
-            
-                app.vue.meows = app.enumerate(result.data.replies);
-                app.vue.reply_mode = true;
-                app.vue.meow_id = meow_id
-            });
-    }
 
     app.get_experiments = function () {
         axios.get(get_experiments_url)
@@ -123,6 +67,33 @@ let init = (app) => {
             });
     }
 
+    app.get_timelapse = function (start, end) {
+        if (app.vue.ready_to_get == false) {
+            return;
+        }
+        app.vue.show_image_overlay = false;
+        app.vue.loading = true;
+
+        // TODO: Consider changing index_provided to the variable value
+        axios.get(images_url, {params: {index_provided: false, make_timelapse: true, cur_img_index: start, experiment_name: app.vue.chosen_experiment_name, cam_name: app.vue.chosen_cam_name, page_size: end}})
+        .then(function (result) {
+            //app.vue.images = result.data.images;
+            app.vue.timelapse_ready = true;
+            //console.log(app.vue.images)
+            app.vue.loading = false;
+            app.vue.timelapse = result.data.timelapse;
+            console.log("Timelapse loaded!")
+            //app.vue.cur_img_index = parseInt(app.vue.cur_img_index) + parseInt(app.vue.page_size);
+            //app.vue.file_names = result.data.file_names;
+            // update the number in the text box for start index if it is outside of the range.
+            // if (parseInt(result.data.total_image_count) <= parseInt(app.vue.start_index)+parseInt(app.vue.page_size)) {
+            //     app.vue.start_index = result.data.total_image_count-app.vue.page_size;
+            // }
+            // app.vue.old_start_index = app.vue.start_index;
+        });
+
+    }
+
     app.get_images = function () {
         if (app.vue.ready_to_get == false) {
             return;
@@ -134,7 +105,11 @@ let init = (app) => {
         if ((app.vue.old_start_index == null && app.vue.start_index != null) || (app.vue.start_index != app.vue.old_start_index && app.vue.start_index != null)) {
             app.vue.cur_img_index = app.vue.start_index;
         }
-        axios.get(images_url, {params: {start_index: app.vue.start_index, cur_img_index: app.vue.cur_img_index, experiment_name: app.vue.chosen_experiment_name, cam_name: app.vue.chosen_cam_name, page_size: app.vue.page_size}})
+        if (app.vue.start_index != null) {
+            app.vue.index_provided = true;
+        }
+        console.log("index_provided:", app.vue.index_provided);
+        axios.get(images_url, {params: {make_timelapse: false, index_provided: app.vue.index_provided, start_index: app.vue.start_index, cur_img_index: app.vue.cur_img_index, experiment_name: app.vue.chosen_experiment_name, cam_name: app.vue.chosen_cam_name, page_size: app.vue.page_size}})
             .then(function (result) {
                 app.vue.images = result.data.images;
                 app.vue.images_ready = true;
@@ -159,47 +134,14 @@ let init = (app) => {
             });
     }
 
-    app.get_meows = function () {
-        axios.get(get_meows_url)
-            .then(function (result) {
-                app.vue.meows = app.enumerate(result.data.meows);
-                app.vue.reply_mode = false;
-            });
-    }
-
-    app.your_meows = function () {
-        axios.get(your_meows_url)
-            .then(function (result) {
-                app.vue.meows = app.enumerate(result.data.meows);
-                app.vue.reply_mode = false;
-            });
-    }
-
-    app.search = function () {
-        console.log("searching!")
-            axios.get(search_url, {params: {q: app.vue.query}})
-                .then(function (result) {
-                    app.vue.user_rows = result.data.user_rows;
-                    if (result.length == 0) {
-                        axios.get(search_url).then(function (r) {
-                            app.vue.user_rows = r.data.user_rows;
-                        })
-                    }
-                });
-    }
-
     // This contains all the methods.
     app.methods = {
         // Complete as you see fit.
-        post_meow: app.post_meow,
-        post_reply: app.post_reply,
         get_experiments: app.get_experiments,
-        your_meows: app.your_meows,
-        post_remeow: app.post_remeow,
         get_images: app.get_images,
-        search: app.search,
         set_camera: app.set_camera,
         set_experiment: app.set_experiment,
+        get_timelapse: app.get_timelapse,
     };
 
     // This creates the Vue instance.
@@ -217,11 +159,6 @@ let init = (app) => {
             }
         })
         app.vue.images_ready = false
-        // axios.get(search_url).then(function (r) {
-        //     app.vue.user_rows = r.data.user_rows;
-        //     console.log(app.vue.user_rows)
-        //     console.log(search_url)
-        // })
     };
 
     // Call to the initializer.

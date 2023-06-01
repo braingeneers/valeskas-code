@@ -79,6 +79,14 @@
       <p v-if="loading">...Loading Images...</p>
     </div>
 
+    <a class="button" :disabled="!ready_to_get" :class='{ "is-loading": loading }' @click="get_timelapse(0, 20)">
+      <span class="icon"><i :class='{ "fa fa-paper-plane": !loading }'></i></span> <span>Get Timelapse</span>
+    </a>
+
+    <video v-if="!loading && timelapse_ready" controls>
+      <source v-if="timelapse_ready" type="video/mp4" v-bind:src="'data:video/mp4;base64,' + timelapse">
+    </video>
+
     <!-- Put the table here -->
     <br>
     <div class="column is-mobile">
