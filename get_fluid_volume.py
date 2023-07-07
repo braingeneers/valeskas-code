@@ -11,6 +11,7 @@ from matplotlib import colors
 import math
 import os
 import re
+import os
 
 best_conversion_vals = []
 volume_deltas = []
@@ -224,6 +225,7 @@ def get_fluid_volume(path):
         os.mkdir("test")
     except Exception as e:
         pass
+    file_name = os.path.splitext(os.path.basename(path))[0]
     #true_volume = float(pattern.search(path).group(0))
     #print("True Volume:", true_volume)
     image = cv2.imread(path)
@@ -277,10 +279,10 @@ def get_fluid_volume(path):
     # to the edges, apply morphological opening operation to remove vertical lines from the contour image
     return_image = cv2.morphologyEx(return_image, cv2.MORPH_OPEN, horizontal_structure)
 
-    cv2.imwrite(f"test/morpho-stuff-{true_volume}.jpg", return_image)
+    cv2.imwrite(f"test/morpho-stuff-{file_name}.jpg", return_image)
     dst = cv2.addWeighted(gray,0.5,return_image,0.9,0)
 
-    cv2.imwrite(f"test/overlayed-wide-{true_volume}.jpg", dst)
+    cv2.imwrite(f"test/overlayed-wide-{file_name}.jpg", dst)
 
     contours, _ = cv2.findContours(return_image,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
 
