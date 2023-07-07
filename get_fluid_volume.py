@@ -375,8 +375,16 @@ def get_fluid_volume(path):
 
     tube_two_indices.append((bottom_y_index_2, max_y_index_2, top_of_tube_index_2, imageCopy, contours))
 
-    fluid_volume = calculate_volume(max_y_2, bottom_y_2, top_of_tube_2, full_volume_2)
+    print("Tube 1 Volume:")
     
-    cv2.imwrite(f"test/bounded_2-{fluid_volume}.jpg", show_contours((bottom_y_index_2, max_y_index_2, top_of_tube_index_2, imageCopy), contours))
+    fluid_volume_1 = calculate_volume(max_y, bottom_y, top_of_tube, full_volume)
+    
+    cv2.imwrite(f"test/bounded-{fluid_volume_1}.jpg", show_contours((bottom_y_index, max_y_index, top_of_tube_index, imageCopy), contours))
+
+    print("Tube 2 Volume:")
+    
+    fluid_volume_2 = calculate_volume(max_y_2, bottom_y_2, top_of_tube_2, full_volume_2)
+    
+    cv2.imwrite(f"test/bounded_2-{fluid_volume_2}.jpg", show_contours((bottom_y_index_2, max_y_index_2, top_of_tube_index_2, imageCopy), contours))
     
 get_fluid_volume("good-images/2023_06_28_T211332_dinolite-t-0.05-o-0.5-f-350-10.0mL.jpg")
